@@ -55,28 +55,24 @@
     <!-- Simple Logger - Must load first to control logging -->
 
     
-    <!-- Initialization Manager - Must load after simple logger -->
-    <script src="initialization-manager.js"></script>
-    
-    <!-- Supabase Authentication System -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
-    <script src="supabase-config.js"></script>
-    <script src="supabase-init.js"></script>
+    <!-- Supabase SDK and Config MUST load first -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+<script src="supabase-config.js"></script>
 
+<!-- Core initialization and auth system -->
+<script src="initialization-manager.js"></script>
+<script src="supabase-init.js"></script>
+<script src="supabase-auth-wrapper.js"></script>
 
-    <script src="supabase-auth-wrapper.js"></script>
-
-<!-- COMPREHENSIVE ERROR HANDLING FOR AUTHENTICATION -->
+<!-- Core utilities and handlers -->
 <script src="error-handling-system.js"></script>
 <script src="safe-json-handler.js"></script>
 <script src="enhanced-database-functions.js"></script>
-    
-    <!-- Security Middleware - Protects API endpoints -->
-    <script src="security-middleware.js"></script>
-    
-    <!-- Subscription Management System -->
-    <script src="subscription-manager.js"></script>
-    <script src="subscription-middleware.js"></script>
+<script src="security-middleware.js"></script>
+
+<!-- Subscription System (must come after Supabase + security) -->
+<script src="subscription-manager.js"></script>
+<script src="subscription-middleware.js"></script>
 
     <style>
         .gradient-bg {
