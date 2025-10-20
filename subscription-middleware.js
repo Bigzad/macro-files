@@ -11,6 +11,16 @@
  * - Graceful degradation and user messaging
  */
 
+// wait until SubscriptionManager exists (non-module safe)
+(function () {
+  const start = () => {
+    if (window.subscriptionManager) return;
+    setTimeout(start, 50);
+  };
+  start();
+})();
+
+
 class SubscriptionMiddleware {
     constructor() {
         this.subscriptionManager = null;
