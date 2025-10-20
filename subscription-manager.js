@@ -21,16 +21,19 @@ class SubscriptionManager {
     }
   }
 
-  async waitForSupabase() {
-    let attempts = 0;
-    while (!window.supabase && attempts < 50) {
-      console.warn("Supabase not ready yet — retrying...");
-      await new Promise(r => setTimeout(r, 100));
-      attempts++;
-    }
-    if (!window.supabase) throw new Error("Supabase client not available");
-    this.supabase = window.supabase;
+async waitForSupabase() {
+  let attempts = 0;
+  while ((!window.supabase || typeof window.supabase.from !== "function") && attempts < 60) {
+    console.warn("Supabase not ready yet — retrying...");
+    await new Promise(r => setTimeout(r, 100));
+    attempts++;
   }
+  if (!window.supabase || typeof window.supabase.from !== "function") {
+    throw new Error("Supabase client not fully initialized");
+  }
+  this.supabase = window.supabase;
+}
+
 
   async loadSubscriptionPlans() {
     try {
