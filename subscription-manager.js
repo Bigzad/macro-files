@@ -37,13 +37,6 @@ class SubscriptionManager {
         // Initialize when Supabase is ready
         this.init();
     }
-
-// Ensure Supabase client exists before proceeding
-if (!window.supabase) {
-  console.warn("Supabase not ready yet — retrying...");
-  await new Promise(resolve => setTimeout(resolve, 200));
-}
-
   
     async init() {
         try {
@@ -69,6 +62,12 @@ if (!window.supabase) {
         this.supabase = window.supabaseClient;
     }
 
+  // Ensure Supabase client exists before proceeding
+if (!window.supabase) {
+  console.warn("Supabase not ready yet — retrying...");
+  await new Promise(resolve => setTimeout(resolve, 200));
+}
+  
     // ================================================
     // SUBSCRIPTION PLANS MANAGEMENT
     // ================================================
