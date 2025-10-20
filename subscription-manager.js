@@ -1,22 +1,7 @@
 /**
  * SUBSCRIPTION MANAGEMENT SYSTEM
- * 
- * Handles all subscription-related operations:
- * - Plan management and pricing
- * - User subscription status
- * - Coach client limits and overages
- * - Access control and feature gating
- * 
- * Business Model:
- * - B2C: Individual clients ($9.99/month, $79.99/year)
- * - B2B: Coaches with client limits + $2/client overage
+ * (no top-level await; works in non-module scripts)
  */
-
-// Temporary wait-for-supabase fix
-await new Promise(r => {
-  const check = () => window.supabase ? r() : setTimeout(check, 50);
-  check();
-});
 
 class SubscriptionManager {
   constructor() {
@@ -24,16 +9,7 @@ class SubscriptionManager {
     this.currentUser = null;
     this.userSubscription = null;
     this.plans = [];
-
-    // Cache subscription data for performance
-    this.cache = {
-      subscription: null,
-      plans: null,
-      clientCount: null,
-      lastUpdated: null
-    };
-
-    // Initialize when Supabase is ready
+    this.cache = { subscription: null, plans: null, clientCount: null, lastUpdated: null };
     this.init();
   }
 
@@ -41,407 +17,180 @@ class SubscriptionManager {
     try {
       await this.waitForSupabase();
       await this.loadSubscriptionPlans();
-      // Subscription Manager ready
     } catch (error) {
       console.error('❌ Subscription Manager initialization failed:', error);
     }
   }
 
   async waitForSupabase() {
-    // Ensure Supabase client exists before proceeding
     let attempts = 0;
     while (!window.supabase && attempts < 50) {
       console.warn("Supabase not ready yet — retrying...");
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(r => setTimeout(r, 100));
       attempts++;
     }
-
-    if (!window.supabase) {
-      throw new Error('Supabase client not available');
-    }
-
+    if (!window.supabase) throw new Error('Supabase client not available');
     this.supabase = window.supabase;
   }
 
-  // ================================================
-  // SUBSCRIPTION PLANS MANAGEMENT
-  // ================================================
-
+  // ---------- PLANS ----------
   async loadSubscriptionPlans() {
     try {
       const { data: plans, error } = await this.supabase
-        .from('subscription_plans')
-        .select('*')
-        .eq('active', true)
+        .from('subscription_plans').select('*').eq('active', true)
         .order('price_cents', { ascending: true });
-
       if (error) throw error;
-
-      this.plans = plans;
-      this.cache.plans = plans;
-      this.cache.lastUpdated = new Date();
-
-      // Subscription plans loaded
+      this.plans = plans; this.cache.plans = plans; this.cache.lastUpdated = new Date();
       return plans;
-    } catch (error) {
-      console.error('Error loading subscription plans:', error);
-      return [];
-    }
+    } catch (e) { console.error('Error loading subscription plans:', e); return []; }
   }
+  getPlans() { return this.plans; }
+  getClientPlans() { return this.plans.filter(p => p.plan_type === 'client'); }
+  getCoachPlans() { return this.plans.filter(p => p.plan_type === 'coach'); }
+  getPlanByCode(code) { return this.plans.find(p => p.plan_code === code); }
 
-  getPlans() {
-    return this.plans;
-  }
-
-  getClientPlans() {
-    return this.plans.filter(plan => plan.plan_type === 'client');
-  }
-
-  getCoachPlans() {
-    return this.plans.filter(plan => plan.plan_type === 'coach');
-  }
-
-  getPlanByCode(planCode) {
-    return this.plans.find(plan => plan.plan_code === planCode);
-  }
-
-  // ================================================
-  // USER SUBSCRIPTION STATUS
-  // ================================================
-
+  // ---------- USER / PROFILE ----------
   async getCurrentUserSubscription() {
     try {
       const { data: { user } } = await this.supabase.auth.getUser();
       if (!user) return null;
-
       this.currentUser = user;
-
-      const { data: subscription, error } = await this.supabase
-        .from('user_subscription_details')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error && error.code !== 'PGRST116') { // Not found is OK
-        throw error;
-      }
-
-      this.userSubscription = subscription;
-      this.cache.subscription = subscription;
-
-      return subscription;
-    } catch (error) {
-      console.error('Error fetching user subscription:', error);
-      return null;
-    }
+      const { data: sub, error } = await this.supabase
+        .from('user_subscription_details').select('*').eq('user_id', user.id).single();
+      if (error && error.code !== 'PGRST116') throw error;
+      this.userSubscription = sub; this.cache.subscription = sub; return sub;
+    } catch (e) { console.error('Error fetching user subscription:', e); return null; }
   }
 
   async getUserProfile() {
     try {
       const { data: { user } } = await this.supabase.auth.getUser();
       if (!user) return null;
-
       const { data: profile, error } = await this.supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) throw error;
-      return profile;
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-      return null;
-    }
+        .from('user_profiles').select('*').eq('user_id', user.id).single();
+      if (error) throw error; return profile;
+    } catch (e) { console.error('Error fetching user profile:', e); return null; }
   }
 
-  // ================================================
-  // ACCESS CONTROL & FEATURE GATING
-  // ================================================
-
+  // ---------- ACCESS ----------
   async hasActiveSubscription() {
-    const subscription = await this.getCurrentUserSubscription();
-    return subscription && subscription.subscription_status === 'active';
+    const s = await this.getCurrentUserSubscription();
+    return s && s.subscription_status === 'active';
   }
-
-  async isCoach() {
-    const profile = await this.getUserProfile();
-    return profile && profile.user_type === 'coach';
-  }
-
-  async isClient() {
-    const profile = await this.getUserProfile();
-    return profile && profile.user_type === 'client';
-  }
-
+  async isCoach() { const p = await this.getUserProfile(); return p && p.user_type === 'coach'; }
+  async isClient() { const p = await this.getUserProfile(); return p && p.user_type === 'client'; }
   async hasFeatureAccess(feature) {
-    const subscription = await this.getCurrentUserSubscription();
-
-    if (!subscription || subscription.subscription_status !== 'active') {
-      return false;
-    }
-
-    const plan = this.getPlanByCode(subscription.plan_code);
-    if (!plan || !plan.features) return false;
-
-    return plan.features[feature] === true;
+    const s = await this.getCurrentUserSubscription();
+    if (!s || s.subscription_status !== 'active') return false;
+    const plan = this.getPlanByCode(s.plan_code);
+    return !!(plan && plan.features && plan.features[feature] === true);
   }
-
   async checkAppAccess() {
-    const hasActiveSubscription = await this.hasActiveSubscription();
+    const active = await this.hasActiveSubscription();
     const profile = await this.getUserProfile();
-
-    // If user has assigned coach, they get free access
     if (profile && profile.assigned_coach_id) {
-      return {
-        hasAccess: true,
-        reason: 'coached_client',
-        message: 'Access provided by your coach'
-      };
+      return { hasAccess: true, reason: 'coached_client', message: 'Access provided by your coach' };
     }
-
-    // Check for active subscription
-    if (hasActiveSubscription) {
-      return {
-        hasAccess: true,
-        reason: 'active_subscription',
-        message: 'Active subscription'
-      };
-    }
-
-    // No access
-    return {
-      hasAccess: false,
-      reason: 'no_subscription',
-      message: 'Subscription required for app access'
-    };
+    if (active) return { hasAccess: true, reason: 'active_subscription', message: 'Active subscription' };
+    return { hasAccess: false, reason: 'no_subscription', message: 'Subscription required for app access' };
   }
 
-  // ================================================
-  // COACH CLIENT MANAGEMENT
-  // ================================================
-
+  // ---------- COACH ----------
   async getCoachClientCount() {
     try {
       const { data: { user } } = await this.supabase.auth.getUser();
       if (!user) return 0;
-
       const { count, error } = await this.supabase
         .from('coach_client_assignments')
         .select('*', { count: 'exact', head: true })
-        .eq('coach_id', user.id)
-        .eq('status', 'active');
-
+        .eq('coach_id', user.id).eq('status', 'active');
       if (error) throw error;
-
-      this.cache.clientCount = count;
-      return count || 0;
-    } catch (error) {
-      console.error('Error getting coach client count:', error);
-      return 0;
-    }
+      this.cache.clientCount = count; return count || 0;
+    } catch (e) { console.error('Error getting coach client count:', e); return 0; }
   }
-
   async getCoachClients() {
     try {
       const { data: { user } } = await this.supabase.auth.getUser();
       if (!user) return [];
-
-      const { data: assignments, error } = await this.supabase
+      const { data, error } = await this.supabase
         .from('coach_client_assignments')
-        .select(`
-          *,
-          client_profile:user_profiles!coach_client_assignments_client_id_fkey(*)
-        `)
-        .eq('coach_id', user.id)
-        .eq('status', 'active')
-        .order('assigned_at', { ascending: false });
-
-      if (error) throw error;
-      return assignments || [];
-    } catch (error) {
-      console.error('Error fetching coach clients:', error);
-      return [];
-    }
+        .select(`*, client_profile:user_profiles!coach_client_assignments_client_id_fkey(*)`)
+        .eq('coach_id', user.id).eq('status', 'active').order('assigned_at', { ascending: false });
+      if (error) throw error; return data || [];
+    } catch (e) { console.error('Error fetching coach clients:', e); return []; }
   }
-
   async canAcceptMoreClients() {
-    const subscription = await this.getCurrentUserSubscription();
-    if (!subscription || subscription.subscription_status !== 'active') {
-      return { canAccept: false, reason: 'No active subscription' };
-    }
-
-    const currentClientCount = await this.getCoachClientCount();
-    const planLimit = subscription.client_limit;
-
-    if (!planLimit) {
-      return { canAccept: false, reason: 'Not a coach plan' };
-    }
-
-    const canAccept = currentClientCount < planLimit;
-    const overageClients = Math.max(0, currentClientCount - planLimit);
-
-    return {
-      canAccept,
-      currentCount: currentClientCount,
-      planLimit,
-      overageClients,
-      overageCost: overageClients * 2.00, // $2 per client
-      reason: canAccept ? 'Within limit' : 'At plan limit (overage charges apply)'
-    };
+    const s = await this.getCurrentUserSubscription();
+    if (!s || s.subscription_status !== 'active') return { canAccept: false, reason: 'No active subscription' };
+    const count = await this.getCoachClientCount();
+    const limit = s.client_limit;
+    if (!limit) return { canAccept: false, reason: 'Not a coach plan' };
+    const canAccept = count < limit;
+    const over = Math.max(0, count - limit);
+    return { canAccept, currentCount: count, planLimit: limit, overageClients: over, overageCost: over * 2.00,
+      reason: canAccept ? 'Within limit' : 'At plan limit (overage charges apply)' };
   }
 
-  // ================================================
-  // SUBSCRIPTION OPERATIONS
-  // ================================================
-
-  async createStripeCheckoutSession(planCode, successUrl, cancelUrl) {
-    try {
-      const plan = this.getPlanByCode(planCode);
-      if (!plan) throw new Error('Plan not found');
-
-      // Placeholder until Stripe integration
-      return {
-        plan,
-        checkoutUrl: `#checkout-${planCode}`,
-        message: 'Stripe integration pending'
-      };
-    } catch (error) {
-      console.error('Error creating checkout session:', error);
-      throw error;
-    }
+  // ---------- OPERATIONS ----------
+  async createStripeCheckoutSession(planCode) {
+    const plan = this.getPlanByCode(planCode);
+    if (!plan) throw new Error('Plan not found');
+    return { plan, checkoutUrl: `#checkout-${planCode}`, message: 'Stripe integration pending' };
   }
-
   async assignClientToCoach(clientUserId, invitationCode = null) {
     try {
       const { data: { user } } = await this.supabase.auth.getUser();
       if (!user) throw new Error('Coach not authenticated');
-
-      const clientCheck = await this.canAcceptMoreClients();
-
+      await this.canAcceptMoreClients(); // allows overage
       const { data: assignment, error } = await this.supabase
         .from('coach_client_assignments')
-        .insert({
-          coach_id: user.id,
-          client_id: clientUserId,
-          invitation_code: invitationCode,
-          status: 'active'
-        })
-        .select()
-        .single();
-
+        .insert({ coach_id: user.id, client_id: clientUserId, invitation_code: invitationCode, status: 'active' })
+        .select().single();
       if (error) throw error;
-
       const { error: profileError } = await this.supabase
-        .from('user_profiles')
-        .update({
-          assigned_coach_id: user.id,
-          user_type: 'client'
-        })
+        .from('user_profiles').update({ assigned_coach_id: user.id, user_type: 'client' })
         .eq('user_id', clientUserId);
-
-      if (profileError) {
-        console.warn('Could not update client profile:', profileError);
-      }
-
+      if (profileError) console.warn('Could not update client profile:', profileError);
       return assignment;
-    } catch (error) {
-      console.error('Error assigning client to coach:', error);
-      throw error;
-    }
+    } catch (e) { console.error('Error assigning client to coach:', e); throw e; }
   }
 
-  // ================================================
-  // PRICING & CALCULATIONS
-  // ================================================
-
-  formatPrice(cents) {
-    return (cents / 100).toLocaleString('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    });
-  }
-
+  // ---------- PRICING ----------
+  formatPrice(cents) { return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' }); }
   calculateAnnualSavings() {
-    const monthlyPlan = this.getPlanByCode('client_monthly');
-    const annualPlan = this.getPlanByCode('client_annual');
-
-    if (!monthlyPlan || !annualPlan) return 0;
-
-    const monthlyTotal = monthlyPlan.price_cents * 12;
-    const savings = monthlyTotal - annualPlan.price_cents;
-
-    return savings;
+    const m = this.getPlanByCode('client_monthly'); const y = this.getPlanByCode('client_annual');
+    if (!m || !y) return 0; return m.price_cents * 12 - y.price_cents;
   }
 
-  // ================================================
-  // UI HELPER METHODS
-  // ================================================
-
+  // ---------- UI ----------
   async renderSubscriptionStatus() {
     const subscription = await this.getCurrentUserSubscription();
     const access = await this.checkAppAccess();
-
-    return {
-      subscription,
-      access,
-      isCoach: await this.isCoach(),
-      clientCount: await this.getCoachClientCount(),
-      canAcceptClients: await this.canAcceptMoreClients()
-    };
+    return { subscription, access, isCoach: await this.isCoach(), clientCount: await this.getCoachClientCount(),
+             canAcceptClients: await this.canAcceptMoreClients() };
   }
 
-  // ================================================
-  // SUBSCRIPTION MIDDLEWARE FOR ACCESS CONTROL
-  // ================================================
-
+  // ---------- GUARD ----------
   async enforceSubscriptionAccess(feature = 'app_access') {
     const access = await this.checkAppAccess();
-
-    if (!access.hasAccess) {
-      this.showSubscriptionRequiredModal(access.message);
-      return false;
+    if (!access.hasAccess) { this.showSubscriptionRequiredModal(access.message); return false; }
+    if (feature !== 'app_access' && !(await this.hasFeatureAccess(feature))) {
+      this.showUpgradeRequiredModal(feature); return false;
     }
-
-    if (feature !== 'app_access') {
-      const hasFeature = await this.hasFeatureAccess(feature);
-      if (!hasFeature) {
-        this.showUpgradeRequiredModal(feature);
-        return false;
-      }
-    }
-
     return true;
   }
-
   showSubscriptionRequiredModal(message) {
     console.warn('Subscription required:', message);
-    if (window.location.pathname !== '/index.html') {
-      window.location.href = '/subscription-required.html';
-    }
+    if (window.location.pathname !== '/index.html') window.location.href = '/subscription-required.html';
   }
-
-  showUpgradeRequiredModal(feature) {
-    console.warn('Feature upgrade required:', feature);
-  }
+  showUpgradeRequiredModal(feature) { console.warn('Feature upgrade required:', feature); }
 }
 
-// ================================================
-// GLOBAL INITIALIZATION
-// ================================================
-
+// ---- GLOBAL INIT (non-module safe) ----
 document.addEventListener('DOMContentLoaded', () => {
-  if (!window.subscriptionManager) {
-    window.subscriptionManager = new SubscriptionManager();
-  }
+  if (!window.subscriptionManager) window.subscriptionManager = new SubscriptionManager();
 });
-
 if (document.readyState !== 'loading') {
-  if (!window.subscriptionManager) {
-    window.subscriptionManager = new SubscriptionManager();
-  }
+  if (!window.subscriptionManager) window.subscriptionManager = new SubscriptionManager();
 }
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = SubscriptionManager;
-}
+if (typeof module !== 'undefined' && module.exports) module.exports = SubscriptionManager;
