@@ -12,6 +12,13 @@
  * - B2B: Coaches with client limits + $2/client overage
  */
 
+// Temporary wait-for-supabase fix
+await new Promise(r => {
+  const check = () => window.supabase ? r() : setTimeout(check, 50);
+  check();
+});
+
+
 class SubscriptionManager {
     constructor() {
         this.supabase = window.supabaseClient;
