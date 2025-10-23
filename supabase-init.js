@@ -1,9 +1,32 @@
-// shim for old scripts - works without type="module"
-(async () => {
-  if (!window.supabase) {
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-    const url = "https://ygaurcstrehqgdxhhnob.supabase.co";
-    const anon = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnYXVyY3N0cmVocWdkeGhobm9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0NDg5MjQsImV4cCI6MjA3MzAyNDkyNH0.EAP8nJk1G4p22lE001zJPDZPnrZOh9uWj9TfP00SuJ8";
-    window.supabase = createClient(url, anon);
+/* ==========================================================================
+   SUPABASE INIT — waits for client readiness and logs session state
+   ========================================================================== */
+(function () {
+  function waitForSupabaseReady(max = 60) {
+    return new Promise((resolve, reject) => {
+      let tries = 0;
+      const tick = () => {
+        const ok = window.__SUPABASE_READY__ && window.supabase && typeof window.supabase.from === "function";
+        if (ok) return resolve(true);
+        if (tries++ >= max) return reject(new Error("Supabase not ready after waiting"));
+        setTimeout(tick, 100);
+      };
+      tick();
+    });
   }
+
+  (async () => {
+    try {
+      await waitForSupabaseReady();
+      console.log("✅ Supabase is ready (supabase-init).");
+      const { data } = await window.supabase.auth.getSession();
+      if (data?.session) {
+        console.log("👤 Active session for:", data.session.user.email);
+      } else {
+        console.log("🚪 No active session.");
+      }
+    } catch (e) {
+      console.error("❌ supabase-init failed:", e.message);
+    }
+  })();
 })();

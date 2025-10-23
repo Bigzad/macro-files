@@ -1,118 +1,95 @@
 /* ==========================================================================
-   SUPABASE CONFIG + AUTH SYSTEM (unified)
-   Handles login, logout, session persistence, and notifications.
+   SUPABASE CONFIG (Unified) — Non-module safe
+   - Creates a single Supabase client on window.supabase
+   - Provides authSystem (email + password), persistent sessions
+   - Top-center notifications (no alert())
    ========================================================================== */
-
 (function () {
-  const SUPABASE_URL = "https://ygaurcstrehqgdxhhnob.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnYXVyY3N0cmVocWdkeGhobm9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0NDg5MjQsImV4cCI6MjA3MzAyNDkyNH0.EAP8nJk1G4p22lE001zJPDZPnrZOh9uWj9TfP00SuJ8";
-
-  // --- 1. Initialize Supabase client ---
-  if (!window.supabase) {
-    window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  // --- Guard: require Supabase UMD to be loaded first ---
+  if (typeof window.supabase === "object" && typeof window.supabase.from === "function") {
+    console.log("ℹ️ Supabase client already present, skipping re-init.");
+  } else if (typeof window.supabase === "object" && !window.supabase.from) {
+    // If a placeholder object was set, replace it with real client.
+    console.log("♻️ Replacing placeholder supabase with real client...");
+    window.supabase = window.supabase.createClient
+      ? window.supabase.createClient("https://ygaurcstrehqgdxhhnob.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnYXVyY3N0cmVocWdkeGhobm9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0NDg5MjQsImV4cCI6MjA3MzAyNDkyNH0.EAP8nJk1G4p22lE001zJPDZPnrZOh9uWj9TfP00SuJ8")
+      : supabase.createClient("https://ygaurcstrehqgdxhhnob.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnYXVyY3N0cmVocWdkeGhobm9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0NDg5MjQsImV4cCI6MjA3MzAyNDkyNH0.EAP8nJk1G4p22lE001zJPDZPnrZOh9uWj9TfP00SuJ8");
+  } else {
+    // Create fresh client via UMD global 'supabase'
+    if (typeof supabase === "undefined" || !supabase.createClient) {
+      console.error("❌ Supabase UMD library not loaded. Ensure the SDK script is before this file.");
+      return;
+    }
+    window.supabase = supabase.createClient("https://ygaurcstrehqgdxhhnob.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnYXVyY3N0cmVocWdkeGhobm9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0NDg5MjQsImV4cCI6MjA3MzAyNDkyNH0.EAP8nJk1G4p22lE001zJPDZPnrZOh9uWj9TfP00SuJ8", {
       auth: {
         persistSession: true,
         storageKey: "macro-app-session",
         detectSessionInUrl: true,
-        autoRefreshToken: true,
-      },
+        autoRefreshToken: true
+      }
     });
     console.log("✅ Supabase client initialized");
   }
 
   const sb = window.supabase;
 
-  // --- 2. Notification System (Top-Center Banner) ---
-  function showMessage(text, type = "info", duration = 3500) {
-    const colors = {
-      success: "#3CB371",
-      error: "#E57373",
-      info: "#3A7CA5",
-      warn: "#F6BE00",
-    };
-
-    let banner = document.createElement("div");
-    banner.textContent = text;
-    banner.style.position = "fixed";
-    banner.style.top = "20px";
-    banner.style.left = "50%";
-    banner.style.transform = "translateX(-50%)";
-    banner.style.background = colors[type] || colors.info;
-    banner.style.color = "#fff";
-    banner.style.padding = "10px 20px";
-    banner.style.borderRadius = "8px";
-    banner.style.boxShadow = "0 2px 8px rgba(0,0,0,0.2)";
-    banner.style.fontFamily = "Inter, sans-serif";
-    banner.style.fontSize = "14px";
-    banner.style.zIndex = "9999";
-    banner.style.opacity = "0";
-    banner.style.transition = "opacity 0.3s ease";
-    document.body.appendChild(banner);
-    setTimeout(() => (banner.style.opacity = "1"), 50);
-    setTimeout(() => {
-      banner.style.opacity = "0";
-      setTimeout(() => banner.remove(), 400);
-    }, duration);
+  // --- Lightweight top-center notification banners ---
+  function notify(msg, type = "info", ms = 3500) {
+    const palette = { success: "#2E7D32", error: "#C62828", info: "#1565C0", warn: "#EF6C00" };
+    const bar = document.createElement("div");
+    bar.textContent = msg;
+    Object.assign(bar.style, {
+      position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)",
+      background: palette[type] || palette.info, color: "#fff",
+      padding: "10px 18px", borderRadius: "10px", boxShadow: "0 4px 16px rgba(0,0,0,.25)",
+      fontFamily: "Inter, system-ui, sans-serif", fontSize: "14px",
+      zIndex: 2147483647, opacity: 0, transition: "opacity .25s ease"
+    });
+    document.body.appendChild(bar);
+    requestAnimationFrame(() => bar.style.opacity = 1);
+    setTimeout(() => { bar.style.opacity = 0; setTimeout(() => bar.remove(), 300); }, ms);
   }
+  window.__notify = notify;
 
-  // --- 3. Auth Helpers ---
+  // --- authSystem helpers (email + password) ---
   window.authSystem = {
     async signIn(email, password) {
       try {
         const { data, error } = await sb.auth.signInWithPassword({ email, password });
         if (error) throw error;
-
-        showMessage("Login successful — redirecting...", "success");
-        console.log("🔐 Authenticated user:", data.user?.email);
-        setTimeout(() => (window.location.href = "app.html"), 1200);
-      } catch (err) {
-        console.error("Login error:", err.message);
-        showMessage("Incorrect email or password", "error");
+        console.log("🔐 SIGNED IN:", data.user?.email);
+        notify("Login successful — redirecting...", "success");
+        setTimeout(() => (window.location.href = "app.html"), 900);
+      } catch (e) {
+        console.error("Login error:", e);
+        notify("Incorrect email or password", "error");
       }
     },
-
     async signOut() {
       try {
         const { error } = await sb.auth.signOut();
         if (error) throw error;
-        showMessage("Signed out successfully", "info");
-        setTimeout(() => (window.location.href = "index.html"), 1000);
-      } catch (err) {
-        console.error("Sign-out error:", err.message);
-        showMessage("Error signing out", "error");
+        notify("Signed out", "info");
+        setTimeout(() => (window.location.href = "index.html"), 800);
+      } catch (e) {
+        console.error("Sign-out error:", e);
+        notify("Error signing out", "error");
       }
     },
-
     async getSession() {
       const { data } = await sb.auth.getSession();
-      return data.session;
-    },
+      return data.session || null;
+    }
   };
 
-  // --- 4. Session Handling + Auto Redirects ---
-  sb.auth.onAuthStateChange(async (event, session) => {
-    if (event === "SIGNED_IN" && session) {
-      console.log("User signed in:", session.user.email);
-    } else if (event === "SIGNED_OUT") {
-      console.log("User signed out");
-    } else if (event === "TOKEN_REFRESHED") {
-      console.log("Token refreshed");
-    } else if (event === "USER_UPDATED") {
-      console.log("User updated");
-    }
-  });
+  // --- Auth change logs (safe even if called early) ---
+  if (sb && sb.auth && typeof sb.auth.onAuthStateChange === "function") {
+    sb.auth.onAuthStateChange((event) => {
+      console.log("🪪 onAuthStateChange:", event);
+    });
+  }
 
-  // --- 5. Page Guard (optional redirect logic) ---
-  document.addEventListener("DOMContentLoaded", async () => {
-    const { data } = await sb.auth.getSession();
-    const path = window.location.pathname.split("/").pop();
-
-    if (path === "index.html" && data.session) {
-      // Already logged in → go to app.html
-      window.location.href = "app.html";
-    } else if (path === "app.html" && !data.session) {
-      showMessage("Session expired — please log in again", "warn");
-      setTimeout(() => (window.location.href = "index.html"), 1500);
-    }
-  });
+  // --- Mark readiness for other scripts ---
+  window.__SUPABASE_READY__ = true;
+  document.dispatchEvent(new CustomEvent("supabase:ready"));
 })();
