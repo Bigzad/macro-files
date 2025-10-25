@@ -1,26 +1,20 @@
 /* ==========================================================================
    SUPABASE CONFIG (Unified) — Non-module safe
-   - Creates a single Supabase client on window.supabase
-   - Provides authSystem (email + password), persistent sessions
-   - Top-center notifications (no alert())
+   - Creates Supabase client (window.supabase)
+   - Exposes window.authSystem + legacy authWrapper alias
+   - Handles redirects (index.html <-> app.html)
+   - Provides notify banners + backward compat for init()
    ========================================================================== */
 (function () {
-  // --- Guard: require Supabase UMD to be loaded first ---
-  if (typeof window.supabase === "object" && typeof window.supabase.from === "function") {
-    console.log("ℹ️ Supabase client already present, skipping re-init.");
-  } else if (typeof window.supabase === "object" && !window.supabase.from) {
-    // If a placeholder object was set, replace it with real client.
-    console.log("♻️ Replacing placeholder supabase with real client...");
-    window.supabase = window.supabase.createClient
-      ? window.supabase.createClient("https://ygaurcstrehqgdxhhnob.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnYXVyY3N0cmVocWdkeGhobm9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0NDg5MjQsImV4cCI6MjA3MzAyNDkyNH0.EAP8nJk1G4p22lE001zJPDZPnrZOh9uWj9TfP00SuJ8")
-      : supabase.createClient("https://ygaurcstrehqgdxhhnob.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnYXVyY3N0cmVocWdkeGhobm9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0NDg5MjQsImV4cCI6MjA3MzAyNDkyNH0.EAP8nJk1G4p22lE001zJPDZPnrZOh9uWj9TfP00SuJ8");
-  } else {
-    // Create fresh client via UMD global 'supabase'
+  const SUPABASE_URL = "https://ygaurcstrehqgdxhhnob.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnYXVyY3N0cmVocWdkeGhobm9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0NDg5MjQsImV4cCI6MjA3MzAyNDkyNH0.EAP8nJk1G4p22lE001zJPDZPnrZOh9uWj9TfP00SuJ8";
+
+  if (!window.supabase || typeof window.supabase.from !== "function") {
     if (typeof supabase === "undefined" || !supabase.createClient) {
-      console.error("❌ Supabase UMD library not loaded. Ensure the SDK script is before this file.");
+      console.error("❌ Supabase UMD not loaded before config.");
       return;
     }
-    window.supabase = supabase.createClient("https://ygaurcstrehqgdxhhnob.supabase.co", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlnYXVyY3N0cmVocWdkeGhobm9iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0NDg5MjQsImV4cCI6MjA3MzAyNDkyNH0.EAP8nJk1G4p22lE001zJPDZPnrZOh9uWj9TfP00SuJ8", {
+    window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       auth: {
         persistSession: true,
         storageKey: "macro-app-session",
@@ -33,31 +27,31 @@
 
   const sb = window.supabase;
 
-  // --- Lightweight top-center notification banners ---
-  function notify(msg, type = "info", ms = 3500) {
-    const palette = { success: "#2E7D32", error: "#C62828", info: "#1565C0", warn: "#EF6C00" };
-    const bar = document.createElement("div");
-    bar.textContent = msg;
-    Object.assign(bar.style, {
+  // Notification utility
+  function notify(msg, type = "info", ms = 2800) {
+    const colors = { success: "#2E7D32", error: "#C62828", info: "#1565C0", warn: "#EF6C00" };
+    const div = document.createElement("div");
+    div.textContent = msg;
+    Object.assign(div.style, {
       position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)",
-      background: palette[type] || palette.info, color: "#fff",
-      padding: "10px 18px", borderRadius: "10px", boxShadow: "0 4px 16px rgba(0,0,0,.25)",
-      fontFamily: "Inter, system-ui, sans-serif", fontSize: "14px",
-      zIndex: 2147483647, opacity: 0, transition: "opacity .25s ease"
+      background: colors[type] || colors.info, color: "#fff",
+      padding: "10px 16px", borderRadius: "10px",
+      boxShadow: "0 4px 16px rgba(0,0,0,.25)", fontFamily: "Inter, sans-serif",
+      fontSize: "14px", zIndex: 9999, opacity: 0, transition: "opacity .25s ease"
     });
-    document.body.appendChild(bar);
-    requestAnimationFrame(() => bar.style.opacity = 1);
-    setTimeout(() => { bar.style.opacity = 0; setTimeout(() => bar.remove(), 300); }, ms);
+    document.body.appendChild(div);
+    requestAnimationFrame(() => div.style.opacity = 1);
+    setTimeout(() => { div.style.opacity = 0; setTimeout(() => div.remove(), 300); }, ms);
   }
   window.__notify = notify;
 
-  // --- authSystem helpers (email + password) ---
+  // Auth system
   window.authSystem = {
     async signIn(email, password) {
       try {
         const { data, error } = await sb.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        console.log("🔐 SIGNED IN:", data.user?.email);
+        console.log("🔐 Signed in:", data.user?.email);
         notify("Login successful — redirecting...", "success");
         setTimeout(() => (window.location.href = "app.html"), 900);
       } catch (e) {
@@ -82,21 +76,36 @@
     }
   };
 
-  // --- Auth change logs (safe even if called early) ---
-  if (sb && sb.auth && typeof sb.auth.onAuthStateChange === "function") {
-    sb.auth.onAuthStateChange((event) => {
-      console.log("🪪 onAuthStateChange:", event);
-    });
+  if (sb?.auth?.onAuthStateChange) {
+    sb.auth.onAuthStateChange((event) => console.log("🪪 Auth state:", event));
   }
 
-  // --- Mark readiness for other scripts ---
+  // Page guard redirects
+  document.addEventListener("DOMContentLoaded", async () => {
+    try {
+      const { data } = await sb.auth.getSession();
+      const page = (location.pathname.split("/").pop() || "").toLowerCase();
+      if ((page === "" || page === "index.html") && data?.session) location.href = "app.html";
+      if (page === "app.html" && !data?.session) {
+        notify("Session expired — please log in again", "warn");
+        setTimeout(() => (location.href = "index.html"), 1200);
+      }
+    } catch (e) {
+      console.warn("Guard check failed:", e?.message);
+    }
+  });
+
+  // Legacy compatibility
+  if (!window.authWrapper && window.authSystem) {
+    window.authWrapper = window.authSystem;
+    console.log("🧩 Auth wrapper alias added for compatibility.");
+  }
+  if (window.authWrapper && !window.authWrapper.init) {
+    window.authWrapper.init = function() {
+      console.log("🧩 authWrapper.init() called — handled automatically by Supabase.");
+    };
+  }
+
   window.__SUPABASE_READY__ = true;
   document.dispatchEvent(new CustomEvent("supabase:ready"));
 })();
-
-
-// --- Backward compatibility for old scripts expecting authWrapper ---
-if (!window.authWrapper && window.authSystem) {
-  window.authWrapper = window.authSystem;
-  console.log("🧩 Auth wrapper alias applied for backward compatibility.");
-}
