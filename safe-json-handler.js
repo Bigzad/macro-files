@@ -1,3 +1,11 @@
+// SAFE-GUARDED: prevents duplicate execution and 'already declared' errors
+(function() {
+  if (window.__SAFE_JSON_LOADED__) {
+    console.log("↩️ SafeJSONHandler script already initialized — skipping re-execution.");
+    return;
+  }
+  window.__SAFE_JSON_LOADED__ = true;
+
 /**
  * SAFE JSON HANDLER
  * Bulletproof JSON operations with validation and error recovery
@@ -467,3 +475,6 @@ console.log('✅ Safe JSON Handler initialized with schemas:', Object.keys(commo
 if (window.initManager && window.JSON && window.JSON.safeParse) {
     window.initManager.registerComponent('safeJSON', window.JSON);
 }
+
+  console.log("✅ SafeJSONHandler initialized safely.");
+})();

@@ -1,3 +1,11 @@
+// SAFE-GUARDED: prevents duplicate execution and 'already declared' errors
+(function() {
+  if (window.__EHS_LOADED__) {
+    console.log("↩️ ErrorHandlingSystem script already initialized — skipping re-execution.");
+    return;
+  }
+  window.__EHS_LOADED__ = true;
+
 /**
  * COMPREHENSIVE ERROR HANDLING SYSTEM
  * Centralized error management for zero error handling issues
@@ -569,3 +577,6 @@ console.log('✅ Comprehensive Error Handling System initialized');
 if (window.initManager) {
     window.initManager.registerComponent('errorHandler', window.errorHandler);
 }
+
+  console.log("✅ ErrorHandlingSystem initialized safely.");
+})();

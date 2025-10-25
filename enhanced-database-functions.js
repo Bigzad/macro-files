@@ -1,3 +1,11 @@
+// SAFE-GUARDED: prevents duplicate execution and 'already declared' errors
+(function() {
+  if (window.__ENH_DB_FUNCS_LOADED__) {
+    console.log("↩️ EnhancedDatabaseFunctions script already initialized — skipping re-execution.");
+    return;
+  }
+  window.__ENH_DB_FUNCS_LOADED__ = true;
+
 /**
  * ENHANCED DATABASE FUNCTIONS WITH COMPREHENSIVE ERROR HANDLING
  * 
@@ -705,3 +713,6 @@ if (window.initManager) {
     window.initManager.registerComponent('enhancedDB', window.enhancedDB);
     window.initManager.registerComponent('networkMonitor', window.networkMonitor);
 }
+
+  console.log("✅ EnhancedDatabaseFunctions initialized safely.");
+})();
