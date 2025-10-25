@@ -93,3 +93,10 @@
   window.__SUPABASE_READY__ = true;
   document.dispatchEvent(new CustomEvent("supabase:ready"));
 })();
+
+
+// --- Backward compatibility for old scripts expecting authWrapper ---
+if (!window.authWrapper && window.authSystem) {
+  window.authWrapper = window.authSystem;
+  console.log("🧩 Auth wrapper alias applied for backward compatibility.");
+}
