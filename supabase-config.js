@@ -1,9 +1,7 @@
 /* ==========================================================================
-   SUPABASE CONFIG (Unified) — Non-module safe
-   - Creates Supabase client (window.supabase)
-   - Exposes window.authSystem + legacy authWrapper alias
-   - Handles redirects (index.html <-> app.html)
-   - Provides notify banners + backward compat for init()
+   SUPABASE CONFIG (Unified, Safe, Final)
+   - Handles Supabase client + authWrapper alias
+   - Auto reconnects and adds delayed safety init
    ========================================================================== */
 (function () {
   const SUPABASE_URL = "https://ygaurcstrehqgdxhhnob.supabase.co";
@@ -105,6 +103,19 @@
       console.log("🧩 authWrapper.init() called — handled automatically by Supabase.");
     };
   }
+
+  // ✅ Option B: delayed safety init to handle early calls
+  setTimeout(() => {
+    if (window.authWrapper && !window.authWrapper.__autoInitDone) {
+      window.authWrapper.__autoInitDone = true;
+      try {
+        window.authWrapper.init?.();
+        console.log("⏱️ Delayed authWrapper.init() executed safely.");
+      } catch (err) {
+        console.warn("Skipped auto-init:", err.message);
+      }
+    }
+  }, 1200);
 
   window.__SUPABASE_READY__ = true;
   document.dispatchEvent(new CustomEvent("supabase:ready"));
