@@ -1,5 +1,7 @@
 /* ==========================================================================
-   SUPABASE INIT — waits for client readiness and logs session state
+   SUPABASE INIT (Enhanced, Safe)
+   - Waits for Supabase client readiness
+   - Initializes authWrapper safely after Supabase loads
    ========================================================================== */
 (function () {
   function waitForSupabaseReady(max = 60) {
@@ -19,6 +21,8 @@
     try {
       await waitForSupabaseReady();
       console.log("✅ Supabase is ready (supabase-init).");
+
+      // Check session state
       const { data } = await window.supabase.auth.getSession();
       if (data?.session) {
         console.log("👤 Active session for:", data.session.user.email);
@@ -29,4 +33,18 @@
       console.error("❌ supabase-init failed:", e.message);
     }
   })();
+
+  // New: Listen for Supabase readiness and init authWrapper safely
+  document.addEventListener("supabase:ready", () => {
+    if (window.authWrapper?.init) {
+      console.log("✅ Supabase ready — initializing authWrapper safely.");
+      try {
+        window.authWrapper.init();
+      } catch (err) {
+        console.warn("⚠️ authWrapper.init() threw an error:", err.message);
+      }
+    } else {
+      console.warn("⚠️ Supabase ready but authWrapper not defined yet.");
+    }
+  });
 })();
