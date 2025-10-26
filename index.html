@@ -65,40 +65,40 @@
      ========================================================== -->
 
 <!-- 1. Core Supabase SDK + Unified Config -->
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
-<script defer src="supabase-config.js"></script>
+
+
 
 <!-- 2. Supabase Initialization and Session Setup -->
-<script defer src="supabase-init.js"></script>
-<script defer src="initialization-manager.js"></script>
+
+
 
 <!-- 3. Utility and Middleware Systems -->
 
 
 
-<script defer src="security-middleware.js"></script>
+
 
 <!-- 4. Subscription System -->
-<script defer src="subscription-manager.js"></script>
-<script defer src="subscription-middleware.js"></script>
+
+
 
 <!-- 5. Removed old or redundant scripts -->
 <!-- ❌ supabase-auth-wrapper.js -->
 <!-- ❌ duplicate Supabase loaders -->
 
 <!-- 2. App Initialization and Core Logic -->
-<script defer src="initialization-manager.js"></script>
-<script defer src="supabase-init.js"></script>
+
+
 
 <!-- 3. Utility Systems -->
-<script defer src="error-handling-system.js"></script>
-<script defer src="safe-json-handler.js"></script>
-<script defer src="enhanced-database-functions.js"></script>
-<script defer src="security-middleware.js"></script>
+
+
+
+
 
 <!-- 4. Subscription System -->
-<script defer src="subscription-manager.js"></script>
-<script defer src="subscription-middleware.js"></script>
+
+
 
 <!-- 5. Remove old merged files -->
 <!-- ❌ supabase-auth-wrapper.js -->
@@ -1779,6 +1779,22 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 });
 </script>
+
+<!-- ==========================================================
+     ✅ Fixed Script Order (Supabase-first, No Duplicates)
+     ========================================================== -->
+<!-- 1. Core Supabase SDK + Unified Config -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+<script defer src="supabase-config.js"></script>
+
+<!-- 2. Supabase Initialization and Session Setup -->
+<script defer src="supabase-init.js"></script>
+<script defer src="initialization-manager.js"></script>
+
+<!-- 3. Core Middleware and Logic -->
+<script defer src="security-middleware.js"></script>
+<script defer src="subscription-manager.js"></script>
+<script defer src="subscription-middleware.js"></script>
 
 </body>
 </html>
