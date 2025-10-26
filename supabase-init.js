@@ -48,3 +48,14 @@
     }
   });
 })();
+
+// ===========================================================
+// Added safe Supabase-native auth listener (replaces .on())
+// ===========================================================
+if (window.supabase?.auth?.onAuthStateChange) {
+  window.supabase.auth.onAuthStateChange((event, session) => {
+    console.log("🪪 Auth state event:", event, session ? "Session active" : "No session");
+  });
+} else {
+  console.warn("⚠️ Supabase auth listener not available yet.");
+}
